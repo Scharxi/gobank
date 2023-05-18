@@ -6,13 +6,13 @@ import (
 )
 
 type Account struct {
-	ID           int           `json:"id"`
-	FirstName    string        `json:"first_name"`
-	LastName     string        `json:"last_name"`
-	Number       int64         `json:"account_number"`
-	Balance      int64         `json:"balance"`
+	ID           int           `json:"id,omitempty"`
+	FirstName    string        `json:"first_name,omitempty"`
+	LastName     string        `json:"last_name,omitempty"`
+	Number       int64         `json:"account_number,omitempty"`
+	Balance      int64         `json:"balance,omitempty"`
 	Transactions []Transaction `json:"transactions,omitempty"`
-	CreateAt     time.Time     `json:"create_at"`
+	CreateAt     time.Time     `json:"create_at,omitempty"`
 }
 
 type Transaction struct {

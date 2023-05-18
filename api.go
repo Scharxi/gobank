@@ -52,7 +52,7 @@ func (s *ApiServer) Run() {
 	router.HandleFunc("/account/transactions/{id}/details", makeHttpHandlerFunc(s.handleTransactions))
 	router.HandleFunc("/account/transactions/{id}", makeHttpHandlerFunc(s.handleGetTransactions))
 	router.HandleFunc("/account/{id}", makeHttpHandlerFunc(s.handleDeleteAccount))
-	router.HandleFunc("/account", makeHttpHandlerFunc(s.handleAccount))
+	router.HandleFunc("/account/", makeHttpHandlerFunc(s.handleAccount))
 	router.HandleFunc("/account/{id}", makeHttpHandlerFunc(s.handleGetAccountById))
 
 	log.Println("JSON API server running on PORT: ", s.listenerAddr)
@@ -64,6 +64,9 @@ func (s *ApiServer) Run() {
 
 func (s *ApiServer) handleAccount(w http.ResponseWriter, r *http.Request) error {
 	if r.Method == "GET" {
+		if len(r.URL.Query()) != 0 {
+			return s.handleGetAccountByNumber(w, r)
+		}
 		return s.handleGetAccount(w, r)
 	}
 	if r.Method == "POST" {
@@ -223,4 +226,19 @@ func (s *ApiServer) handleUpdateTransactionDetails(w http.ResponseWriter, r *htt
 		return err
 	}
 	return WriteJson(w, http.StatusOK, update)
+}
+
+func (s *ApiServer) handleGetAccountByNumber(w http.ResponseWriter, r *http.Request) error {
+	params := r.URL.Query()
+	number, err := strconv.Atoi(params.Get("number"))
+	if err != nil {
+		return err
+	}
+
+	acc, err := s.accounts.(*PostgresStorage).GetAccountByNumber(number)
+	if err != nil {
+		return WriteJson(w, http.StatusBadRequest, "Invalid")
+	}
+
+	return WriteJson(w, http.StatusOK, acc)
 }

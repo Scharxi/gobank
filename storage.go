@@ -243,6 +243,44 @@ where transaction_id = $3
 	return nil
 }
 
+func (s *PostgresStorage) GetAccountByNumber(number int) (*Account, error) {
+	query := `select * from accounts where number = $1`
+	rows, err := s.db.Query(query, number)
+	if err != nil {
+		return nil, err
+	}
+	account := new(Account)
+	for rows.Next() {
+		err := rows.Scan(&account.ID, &account.FirstName, &account.LastName, &account.Number, &account.Balance, &account.CreateAt)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return account, nil
+}
+
+func (s *PostgresStorage) DoesTransactionExists(id int) (bool, error) {
+	var exists bool
+	query := `select exists(select 1 from transactions where id = $1)`
+	err := s.db.QueryRow(query, id).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
+func (s *PostgresStorage) DoesAccountExists(id int) (bool, error) {
+	var exists bool
+	query := `select exists(select 1 from accounts where id = $1)`
+	err := s.db.QueryRow(query, id).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+
+	return exists, nil
+}
+
 func NewPostgresStorage() (*PostgresStorage, error) {
 	connStr := "user=postgres dbname=postgres password=gobank sslmode=disable"
 	db, err := sql.Open("postgres", connStr)

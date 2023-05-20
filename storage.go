@@ -288,14 +288,45 @@ func (s *PostgresStorage) DoTransfer(req MakeTransactionRequest) error {
 	return nil
 }
 
-// UpdateTransactionDetails TODO: When updating only the description the tags are getting overwritten with empty with leads to problems
 func (s *PostgresStorage) UpdateTransactionDetails(id int, req *TransactionDetailsRequest) error {
+	details := new(TransactionDetails)
+	getTransactionQuery := `select * from transaction_details where transaction_id = $1`
+	res, err := s.db.Query(getTransactionQuery, id)
+	if err != nil {
+		return err
+	}
+
+	for res.Next() {
+		var tagString string
+		err = res.Scan(&details.ID, &details.TransactionId, &details.Description, &tagString)
+		if err != nil {
+			return err
+		}
+		details.Tags = strings.Split(tagString, ",")
+	}
+
+	if req.Description != "" {
+		details.Description = req.Description
+	} else {
+		req.Description = details.Description
+	}
+
+	if len(req.Tags) != 0 {
+		for _, tag := range req.Tags {
+			details.Tags = append(details.Tags, tag)
+		}
+	} else {
+		for _, tag := range details.Tags {
+			req.Tags = append(req.Tags, tag)
+		}
+	}
+
 	query := `update transaction_details
-set description = COALESCE($1, description),
-    tags        = COALESCE($2, tags)
-where transaction_id = $3
+		set description = $1,
+			tags        = $2
+		where transaction_id = $3
 	`
-	_, err := s.db.Exec(query, req.Description, strings.Join(req.Tags, ","), id)
+	_, err = s.db.Exec(query, details.Description, strings.Join(details.Tags, ","), id)
 	if err != nil {
 		return err
 	}

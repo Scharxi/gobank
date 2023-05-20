@@ -145,9 +145,8 @@ func (s *ApiServer) handleTransfer(w http.ResponseWriter, r *http.Request) error
 	}
 
 	// save the account in the db
-	transaction := NewTransaction(makeTransactionRequest.AccountId, makeTransactionRequest.RecipientId, makeTransactionRequest.Amount)
 	storage := s.accounts.(*PostgresStorage)
-	if err := storage.CreateTransaction(transaction); err != nil {
+	if err := storage.DoTransfer(*makeTransactionRequest); err != nil {
 		return err
 	}
 	return WriteJson(w, http.StatusOK, makeTransactionRequest)

@@ -12,7 +12,7 @@ type Account struct {
 	Number       int64         `json:"account_number,omitempty"`
 	Balance      int64         `json:"balance,omitempty"`
 	Transactions []Transaction `json:"transactions,omitempty"`
-	CreateAt     time.Time     `json:"create_at,omitempty"`
+	CreateAt     *time.Time    `json:"create_at,omitempty"`
 }
 
 type Transaction struct {
@@ -41,13 +41,14 @@ func NewTransaction(accountId, recipientId int, amount int64) *Transaction {
 }
 
 func NewAccount(firstName, lastName string) *Account {
+	createdAt := time.Now().UTC()
 	return &Account{
 		FirstName:    firstName,
 		LastName:     lastName,
 		Number:       int64(rand.Intn(1000000)),
 		Balance:      int64(0),
 		Transactions: []Transaction{},
-		CreateAt:     time.Now().UTC(),
+		CreateAt:     &createdAt,
 	}
 }
 

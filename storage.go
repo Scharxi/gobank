@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/lib/pq"
+	"log"
 	"strings"
+	"time"
 )
 
 type Storage[T any] interface {
@@ -229,6 +231,63 @@ func (s *PostgresStorage) CreateTransactionDetails(details *TransactionDetails) 
 	return nil
 }
 
+func (s *PostgresStorage) DoTransfer(req MakeTransactionRequest) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// make sure source account exists
+	if s.DoesAccountExists(req.AccountId) {
+		// update source account
+		_, err = tx.Exec("UPDATE accounts set balance = balance - $1 where id = $2", req.Amount, req.AccountId)
+		if err != nil {
+			_ = tx.Rollback()
+			log.Fatal(err)
+		}
+	}
+
+	// make sure recipient account exists
+	if s.DoesAccountExists(req.RecipientId) {
+		// update recipient account
+		_, err = tx.Exec("UPDATE accounts SET balance = balance + $1 WHERE id = $2", req.Amount, req.RecipientId)
+		if err != nil {
+			_ = tx.Rollback()
+			log.Fatal(err)
+		}
+	}
+
+	// create transaction for source account
+	err = s.CreateTransaction(&Transaction{
+		AccountId:       req.AccountId,
+		RecipientId:     req.RecipientId,
+		Amount:          req.Amount,
+		TransactionDate: time.Now().UTC(),
+	})
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	err = s.CreateTransaction(&Transaction{
+		AccountId:       req.RecipientId,
+		RecipientId:     req.RecipientId,
+		Amount:          req.Amount,
+		TransactionDate: time.Now().UTC(),
+	})
+
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return nil
+}
+
 // UpdateTransactionDetails TODO: When updating only the description the tags are getting overwritten with empty with leads to problems
 func (s *PostgresStorage) UpdateTransactionDetails(id int, req *TransactionDetailsRequest) error {
 	query := `update transaction_details
@@ -270,15 +329,15 @@ func (s *PostgresStorage) DoesTransactionExists(id int) (bool, error) {
 	return exists, nil
 }
 
-func (s *PostgresStorage) DoesAccountExists(id int) (bool, error) {
+func (s *PostgresStorage) DoesAccountExists(id int) bool {
 	var exists bool
 	query := `select exists(select 1 from accounts where id = $1)`
 	err := s.db.QueryRow(query, id).Scan(&exists)
 	if err != nil {
-		return false, err
+		return false
 	}
 
-	return exists, nil
+	return exists
 }
 
 func NewPostgresStorage() (*PostgresStorage, error) {
